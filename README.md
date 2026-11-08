@@ -23,6 +23,9 @@ assets/style.css    giao diện (navy + cyan)
 assets/app.js       toàn bộ logic: điều hướng, học, luyện tập, phòng thi, lộ trình
 data/ctfl.js        dữ liệu CTFL v4.0.1: chương, thuật ngữ, mục tiêu học tập, ngân hàng câu hỏi
 data/ctfl-en.js     bản tiếng Anh của câu hỏi, phương án và mục tiêu học tập (chế độ song ngữ)
+data/ctfl-extra.js  câu hỏi bổ sung (song ngữ) để mỗi LO có ít nhất 3 câu, LO mức K3 có 5 câu
+data/lessons-ctfl-0.js  mục “Bắt đầu từ số 0”: kiến thức nền, từ điển cho người mới, cách thi, lộ trình 4 tuần
+data/lessons-ctfl*.js  bài học chi tiết theo mục: chương 1 (lessons-ctfl.js), 2–3, 4, 5–6
 data/roadmap.js     dữ liệu hai lộ trình chứng chỉ
 vercel.json         cấu hình Vercel
 ```
@@ -51,3 +54,27 @@ Thêm bản tiếng Anh cùng thứ tự phương án trong `data/ctfl-en.js` (k
 
 Nội dung câu hỏi là câu tự soạn dựa trên ISTQB® CTFL Syllabus v4.0.1, không phải câu hỏi thi thật.
 ISTQB® là nhãn hiệu đã đăng ký của International Software Testing Qualifications Board; The QA Lab không phải đơn vị của ISTQB.
+
+
+## Bài học chi tiết và Ôn nhanh
+
+Mỗi mục bài học là một object trong `window.QALAB.certs.ctfl.lessons[chương]`:
+
+```js
+{ id: "4.2.2", title, en, los: ["FL-4.2.2"], minutes,   // mỗi mục = một LO, id trùng mã LO
+  example: "tình huống thực tế",
+  blocks: [ ... ],          // nội dung
+  summary: ["ý 1", ...],    // tóm tắt cuối bài, tự gom vào trang Ôn nhanh (#review)
+  terms: [["en", "vi"], ...] }
+```
+
+Các loại block: `h`, `p`, `list`, `table {head, rows}`, `compare {l, r}`, `steps`, `principles`, `tip`, `trap`,
+`worked {title, given, steps, answer}` (bài tập có lời giải, ẩn tới khi người học mở),
+`lab {kind}` với kind = `bva` (EP + BVA), `dt` (bảng quyết định), `est3` (ước lượng ba điểm và tỷ lệ), `risk` (ma trận rủi ro), `st` (mô phỏng chuyển trạng thái), `cov` (đo bao phủ câu lệnh/nhánh).
+Viết `` `code` `` để hiển thị code.
+Viết `**chữ đậm**` trong chuỗi để in đậm.
+
+Trang Ôn nhanh lưu trạng thái “đã ôn” ở `localStorage` (`qalab_reviewed_ctfl`); mục ôn quá 3 ngày hiện “Nên ôn lại”.
+
+Mục lục được nhóm theo mục syllabus (`lessonGroups` trong `data/lessons-ctfl.js`). `lessonMigrate` chuyển tiến độ đã lưu từ mã mục cũ sang mã mới.
+Nút “Tạo carousel” (cuối mỗi bài và trong Ôn nhanh) sinh bộ ảnh 1080×1350 từ phần tóm tắt, kèm caption để đăng TikTok/Facebook/Threads.

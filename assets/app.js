@@ -54,7 +54,8 @@ const mins = ms => { const m = Math.round(ms / 60000); return m < 1 ? 'dưới 1
 const dateStr = t => new Date(t).toLocaleString('vi-VN', {day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit'});
 const dayKey = (d = new Date()) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
 function isoWeek(d = new Date()){ const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())); const day = t.getUTCDay() || 7; t.setUTCDate(t.getUTCDate() + 4 - day); const y = t.getUTCFullYear(); const w = Math.ceil(((t - Date.UTC(y, 0, 1)) / 86400000 + 1) / 7); return {y, w, label: 'Đề tuần ' + w + '/' + y}; }
-const chap = n => cert.chapters[n - 1];
+const CH0 = {n: 0, title: 'Bắt đầu từ số 0'};
+const chap = n => n === 0 ? CH0 : cert.chapters[n - 1];
 const tone = p => p >= 65 ? 'good' : p >= 50 ? 'warn' : 'bad';
 function bar(p){ return `<div class="bar" role="img" aria-label="${p}%"><i style="width:${Math.min(100, p)}%"></i></div>`; }
 const correctIdx = (q, order) => order.indexOf(q.a);
@@ -101,6 +102,8 @@ const SHORTCUTS = [
   ['Luyện tập · câu hỏi', [['1–4 hoặc A–D', 'Chọn đáp án'], ['Enter hoặc →', 'Câu tiếp theo'], ['L', 'Đổi ngôn ngữ: Việt → Anh → Song ngữ'], ['F', 'Chuyển sang flashcard']]],
   ['Flashcard', [['Space', 'Lật thẻ'], ['← →', 'Thẻ trước / sau'], ['K', 'Đã thuộc'], ['J', 'Chưa thuộc'], ['Q', 'Quay lại câu hỏi']]],
   ['Phòng thi', [['1–4 hoặc A–D', 'Chọn đáp án'], ['← →', 'Câu trước / sau'], ['F', 'Đánh dấu xem lại'], ['L', 'Đổi ngôn ngữ đề'], ['S', 'Nộp bài']]],
+  ['Bài học', [['← →', 'Mục trước / sau'], ['L', 'Đổi ngôn ngữ câu kiểm tra nhanh']]],
+  ['Ôn nhanh · thẻ', [['Space', 'Lật thẻ'], ['Enter', 'Đã nhớ, sang thẻ sau'], ['← →', 'Thẻ trước / sau'], ['S', 'Xáo trộn']]],
   ['Câu hỏi của ngày', [['1–4 hoặc A–D', 'Trả lời ngay trên trang chủ']]]
 ];
 function showKeys(){ modal(`<h2 class="h2">Phím tắt</h2><div class="keys">${SHORTCUTS.map(([g, list]) => `<h3>${esc(g.toUpperCase())}</h3>` + list.map(([k, t]) => `<span>${k.split(' hoặc ').map(x => `<kbd>${esc(x)}</kbd>`).join(' hoặc ')}</span><span>${esc(t)}</span>`).join('')).join('')}</div><div class="row"><button class="btn" id="kClose">Đã hiểu</button></div>`, true); $('#kClose').onclick = closeModal; }
@@ -120,8 +123,62 @@ document.addEventListener('keydown', e => {
   'ABCD'.includes(k) && k.length === 1 ? fn('ABCD'.indexOf(k)) : fn();
 });
 
+/* ---------- hiệu ứng ---------- */
+const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function confetti(x, y, n = 70){
+  if (reduceMotion()) return;
+  const cv = document.createElement('canvas'), g = cv.getContext('2d'), dpr = Math.min(2, devicePixelRatio || 1);
+  cv.className = 'fx'; cv.width = innerWidth * dpr; cv.height = innerHeight * dpr; g.scale(dpr, dpr); document.body.appendChild(cv);
+  const cols = ['--accent', '--pink', '--good', '--warn'].map(cssVar);
+  const ps = Array.from({length: n}, () => { const a = -Math.PI / 2 + (Math.random() - .5) * 2.2, v = 4 + Math.random() * 7; return {x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, s: 4 + Math.random() * 5, r: Math.random() * 6, vr: (Math.random() - .5) * .4, c: cols[Math.floor(Math.random() * cols.length)]}; });
+  const t0 = performance.now();
+  (function f(t){ const k = (t - t0) / 1300; g.clearRect(0, 0, innerWidth, innerHeight);
+    ps.forEach(p => { p.vy += .22; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.r += p.vr; g.save(); g.globalAlpha = Math.max(0, 1 - k); g.translate(p.x, p.y); g.rotate(p.r); g.fillStyle = p.c; g.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); g.restore(); });
+    k < 1 ? requestAnimationFrame(f) : cv.remove(); })(t0);
+}
+function burstFrom(el){ if (!el) return; const r = el.getBoundingClientRect(); confetti(r.left + r.width / 2, r.top + r.height / 2, 46); }
+function countUp(){
+  if (reduceMotion()) return;
+  app.querySelectorAll('[data-count]').forEach(el => { const to = +el.dataset.count, suf = el.dataset.suffix || '', t0 = performance.now(), d = 900;
+    (function f(t){ const k = Math.min(1, (t - t0) / d), e = 1 - Math.pow(1 - k, 3); el.textContent = Math.round(to * e) + suf; if (k < 1) requestAnimationFrame(f); })(t0); });
+}
+let heroRAF = 0;
+function heroFx(){
+  cancelAnimationFrame(heroRAF);
+  const cv = document.getElementById('heroFx'); if (!cv) return;
+  const hero = cv.parentElement, g = cv.getContext('2d'), dpr = Math.min(2, devicePixelRatio || 1);
+  let W = 0, H = 0; const ptr = {x: -999, y: -999};
+  const size = () => { const r = cv.getBoundingClientRect(); W = r.width; H = r.height; cv.width = W * dpr; cv.height = H * dpr; g.setTransform(dpr, 0, 0, dpr, 0, 0); };
+  size();
+  const n = Math.max(18, Math.min(64, Math.round(W * H / 8000)));
+  const pts = Array.from({length: n}, () => ({x: Math.random() * W, y: Math.random() * H, vx: (Math.random() - .5) * .3, vy: (Math.random() - .5) * .3, r: Math.random() * 1.4 + 1}));
+  hero.onpointermove = e => { const r = cv.getBoundingClientRect(); ptr.x = e.clientX - r.left; ptr.y = e.clientY - r.top; };
+  hero.onpointerleave = () => { ptr.x = ptr.y = -999; };
+  window.onresize = () => { if (document.body.contains(cv)) size(); };
+  const still = reduceMotion();
+  function frame(t){
+    if (!document.body.contains(cv)) return;
+    const acc = cssVar('--accent'), pink = cssVar('--pink');
+    g.clearRect(0, 0, W, H);
+    pts.forEach(p => { if (!still){ p.x += p.vx; p.y += p.vy; if (p.x < 0 || p.x > W) p.vx *= -1; if (p.y < 0 || p.y > H) p.vy *= -1; } });
+    g.strokeStyle = acc; g.lineWidth = 1;
+    for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++){ const a = pts[i], b = pts[j], d = Math.hypot(a.x - b.x, a.y - b.y); if (d < 120){ g.globalAlpha = (1 - d / 120) * .28; g.beginPath(); g.moveTo(a.x, a.y); g.lineTo(b.x, b.y); g.stroke(); } }
+    pts.forEach(p => { const d = Math.hypot(p.x - ptr.x, p.y - ptr.y); if (d < 160){ g.globalAlpha = (1 - d / 160) * .6; g.beginPath(); g.moveTo(p.x, p.y); g.lineTo(ptr.x, ptr.y); g.stroke(); } });
+    g.fillStyle = acc; pts.forEach(p => { g.globalAlpha = .55; g.beginPath(); g.arc(p.x, p.y, p.r, 0, Math.PI * 2); g.fill(); });
+    const b = pts[0], pulse = still ? .5 : (Math.sin(t / 500) + 1) / 2;
+    g.globalAlpha = .9; g.fillStyle = pink; g.beginPath(); g.arc(b.x, b.y, 3.2, 0, Math.PI * 2); g.fill();
+    g.globalAlpha = .5 * (1 - pulse); g.strokeStyle = pink; g.beginPath(); g.arc(b.x, b.y, 4 + pulse * 18, 0, Math.PI * 2); g.stroke();
+    g.globalAlpha = 1;
+    if (!still) heroRAF = requestAnimationFrame(frame);
+  }
+  heroRAF = requestAnimationFrame(frame);
+}
+let enterTimer = 0;
+function enter(){ clearTimeout(enterTimer); app.classList.remove('enter'); void app.offsetWidth; app.classList.add('enter'); enterTimer = setTimeout(() => app.classList.remove('enter'), 1300); countUp(); }
+
 /* ---------- điều hướng ---------- */
-const views = {home, learn, practice, exam, roadmap};
+const views = {home, learn, review, practice, exam, roadmap};
 let tick = null, curView = null;
 let reviewId = null, reviewFilter = 'all';
 function go(v){
@@ -130,9 +187,10 @@ function go(v){
   curView = v; keys = {}; closeModal();
   if (tick && v !== 'exam'){ clearInterval(tick); tick = null; }
   document.body.classList.remove('in-room');
-  document.querySelectorAll('#nav a').forEach(a => { if (a.dataset.v === v) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+  document.querySelectorAll('#nav a').forEach(a => { if (a.dataset.v === (v === 'review' ? 'learn' : v)) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   if (location.hash !== '#' + v) history.replaceState(null, '', '#' + v);
   views[v]();
+  enter();
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', () => go(location.hash.slice(1)));
@@ -155,7 +213,7 @@ function home(){
   const running = active && !active.submittedAt;
   const d = dailyQ(), dd = daily[d.key], ci = correctIdx(d.q, d.order), st = streak();
   const wk = isoWeek(), wb = weekBest(wk.label);
-  const cta = now === 1 ? ['#learn', 'Học chương ' + (nextCh ? nextCh.n : 1)] : now === 2 ? ['#practice', 'Tiếp tục luyện tập'] : ['#exam', 'Vào phòng thi'];
+  const cta = now === 1 ? ['#learn', !Object.keys(secDone).length && !s.learnedN ? 'Bắt đầu từ số 0' : 'Học chương ' + (nextCh ? nextCh.n : 1)] : now === 2 ? ['#practice', 'Tiếp tục luyện tập'] : ['#exam', 'Vào phòng thi'];
   const steps = [
     ['#learn', 'Học', `${s.learnedN}/6 chương`, pct(s.learnedN, 6), learnDone],
     ['#practice', 'Luyện tập', `${s.done}/${s.total} câu · đúng ${pct(s.right, s.done)}%`, pct(s.done, s.total), practiceDone],
@@ -164,8 +222,9 @@ function home(){
   app.innerHTML = `
   ${running ? `<div class="card row between"><div><b>Bạn có bài thi đang làm dở.</b> <span class="muted small">Còn ${clock(active.endsAt - Date.now())}.</span></div><a class="btn" href="#exam">Quay lại phòng thi</a></div>` : ''}
   <section class="hero">
+    <canvas id="heroFx" aria-hidden="true"></canvas>
     <span class="eyebrow">ISTQB CTFL v4.0.1 · Việt – Anh</span>
-    <h1 class="h1">Học, luyện, rồi vào phòng thi.</h1>
+    <h1 class="h1" style="font-size:clamp(30px,4.6vw,46px)">Học, luyện, rồi vào <span class="grad">phòng thi</span>.</h1>
     <p class="lead">Ví dụ thực tế trước lý thuyết, câu hỏi song ngữ có giải thích, và phòng thi 40 câu trong 60 phút như thật.</p>
     <div class="row"><a class="btn" href="${cta[0]}" id="cta">${cta[1]}</a><a class="btn ghost" href="#roadmap">Xem lộ trình</a></div>
   </section>
@@ -182,7 +241,7 @@ function home(){
         <div class="row between"><span class="small muted">Câu mới mỗi ngày, cả cộng đồng cùng một câu.</span><button class="textlink small" id="dShare">Sao chép để chia sẻ</button></div>` : '<p class="small muted">Cả cộng đồng cùng một câu mỗi ngày.</p>'}
     </section>
     <div class="stack">
-      <section class="card stack">
+      <section class="card stack lift">
         <h2 class="h2">${esc(wk.label)}</h2>
         <p class="small muted">Cả cộng đồng cùng một đề 40 câu, đổi vào thứ Hai. Thi xong có ảnh kết quả để chia sẻ.</p>
         <div class="row between"><span class="small">${wb === null ? 'Bạn chưa thi đề tuần này' : 'Điểm cao nhất của bạn: <b>' + wb + '/40</b>'}</span><a class="btn sm" href="#exam">Thi đề tuần</a></div>
@@ -194,47 +253,343 @@ function home(){
     </div>
   </div>`;
   if (now === 1 && nextCh) $('#cta').onclick = () => { learnCh = nextCh.n; };
-  const answer = j => { if (daily[d.key]) return; daily[d.key] = {pick: j, ok: j === ci}; save.daily(); record(d.q.id, j === ci); home(); };
+  const answer = j => { if (daily[d.key]) return; daily[d.key] = {pick: j, ok: j === ci}; save.daily(); record(d.q.id, j === ci); home(); feedback(j, ci, '[data-dj]'); };
   if (!dd){ link('[data-dj]', e => answer(+e.currentTarget.dataset.dj)); keys.choose = answer; }
   const sh = $('#dShare'); if (sh) sh.onclick = () => copy(`The QA Lab · Câu hỏi của ngày #${d.n} (ISTQB CTFL)\n${dd.ok ? 'Đúng' : 'Sai'}${st ? ' · chuỗi ' + st + ' ngày' : ''}\nThử sức: ${siteUrl()}`);
   keys.L = () => { lang = nextLang(lang); save.lang(); home(); };
+  heroFx();
+}
+function feedback(j, ci, sel){
+  const opts = app.querySelectorAll(sel), mine = opts[j];
+  if (j === ci){ if (mine) mine.classList.add('pop'); burstFrom(mine); } else if (mine) mine.classList.add('shake');
+  const ex = app.querySelector('.exp'); if (ex) ex.classList.add('reveal');
 }
 function siteUrl(){ return /^https?:/.test(location.protocol) && !/claude\.ai|claudeusercontent/.test(location.host) ? location.origin : 'The QA Lab'; }
 
 /* ============ 1. HỌC ============ */
-let learnCh = 1;
+let learnCh = 1, learnSec = store.get('learnSec', {}), chk = {};
+let secDone = store.get('secDone_ctfl', {});
+const GROUPS = cert.lessonGroups || {}, MIGRATE = cert.lessonMigrate || {};
+/* chuyển tiến độ cũ (mục gộp nhiều LO) sang mã mục mới theo LO */
+(function(){ let ch = false; const mv = o => { for (const k of Object.keys(o)) if (MIGRATE[k] && MIGRATE[k] !== k){ o[MIGRATE[k]] = o[MIGRATE[k]] || o[k]; delete o[k]; ch = true; } return o; };
+  mv(secDone); const ls = store.get('learnSec', {}); for (const c in ls) if (MIGRATE[ls[c]]) { ls[c] = MIGRATE[ls[c]]; ch = true; } const rv = mv(store.get('reviewed_ctfl', {}));
+  if (ch){ store.set('secDone_ctfl', secDone); store.set('learnSec', ls); store.set('reviewed_ctfl', rv); } learnSec = ls; })();
+if (!Object.keys(secDone).length && !Object.keys(learned).length) learnCh = 0;
+const grpOf = id => id.split('.').slice(0, 2).join('.');
+function tocItems(secs, sid, noSum){
+  let g = '', h = '';
+  secs.forEach(x => { const gg = grpOf(x.id); if (gg !== g && GROUPS[gg]){ g = gg; h += `<div class="toc-g">${gg} · ${esc(GROUPS[gg])}</div>`; }
+    h += `<button data-s="${x.id}" aria-current="${x.id === sid}" class="${secDone[x.id] ? 'done' : ''}"><span class="n">${secDone[x.id] ? '✓' : x.id}</span><span class="t">${esc(x.title)}</span></button>`; });
+  const n = secs.filter(x => secDone[x.id]).length;
+  return `<div class="toc-p small muted">Đã hiểu ${n}/${secs.length} mục${bar(pct(n, secs.length))}</div>` + h + (noSum ? '' : `<button data-s="sum" aria-current="${sid === 'sum'}"><span class="n">∑</span><span class="t">Tóm tắt chương</span></button>`);
+}
+const LESSONS = cert.lessons || {};
+const md = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/`([^`]+)`/g, '<code>$1</code>');
+function block(b){
+  if (b.t === 'h') return `<h3 class="sec">${md(b.v)}</h3>`;
+  if (b.t === 'p') return `<p>${md(b.v)}</p>`;
+  if (b.t === 'list') return `<ul class="pts">${b.v.map(x => `<li>${md(x)}</li>`).join('')}</ul>`;
+  if (b.t === 'table') return `<div class="tablewrap"><table>${b.head ? `<thead><tr>${b.head.map(h => `<th>${md(h)}</th>`).join('')}</tr></thead>` : ''}<tbody>${b.rows.map(r => `<tr>${r.map(c => `<td>${md(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  if (b.t === 'compare') return `<div class="cmp">${[b.l, b.r].map(x => `<div><h4>${md(x.h)}</h4><span class="q">${md(x.q)}</span><ul>${x.v.map(i => `<li>${md(i)}</li>`).join('')}</ul></div>`).join('')}</div>`;
+  if (b.t === 'steps') return `<div class="flowsteps">${b.v.map(([a, t]) => `<div><span><b>${md(a)}</b><span class="small muted">${md(t)}</span></span></div>`).join('')}</div>`;
+  if (b.t === 'principles') return `<div class="prin">${b.v.map(([n, h, t, ex]) => `<details ${n === '1' ? 'open' : ''}><summary><span class="no">${n}</span><span>${md(h)}</span></summary><p style="margin-top:8px">${md(t)}</p><div class="ex"><b>Ví dụ:</b> ${md(ex)}</div></details>`).join('')}</div>`;
+  if (b.t === 'tip') return `<div class="callout good"><b>Mẹo</b>${md(b.v)}</div>`;
+  if (b.t === 'trap') return `<div class="callout bad"><b>Bẫy hay gặp trong đề</b><ul class="pts">${b.v.map(x => `<li>${md(x)}</li>`).join('')}</ul></div>`;
+  if (b.t === 'worked') return `<div class="worked"><span class="meta">Bài tập có lời giải</span><h4>${md(b.title)}</h4><p>${md(b.given)}</p>
+    <details><summary>Tự làm trước, rồi xem lời giải từng bước</summary><ol class="wsteps">${b.steps.map(x => `<li>${md(x)}</li>`).join('')}</ol><div class="wans"><b>Đáp án</b>${md(b.answer)}</div></details></div>`;
+  if (b.t === 'lab') return labHtml(b.kind);
+  return '';
+}
+
+/* ---------- Lab: công cụ tương tác trong bài ---------- */
+const LABS = {
+  bva: {name: 'Máy tính EP và BVA', hint: 'Nhập khoảng hợp lệ (số nguyên), xem ngay các vùng và giá trị cần thử.', inputs: [['min', 'Nhỏ nhất', 18], ['max', 'Lớn nhất', 60]]},
+  dt: {name: 'Sinh bảng quyết định đầy đủ', hint: 'Mỗi điều kiện một dòng (tối đa 5). Bảng sinh đủ 2ⁿ quy tắc.', inputs: [['conds', 'Điều kiện', 'Là thành viên\nĐơn ≥ 500k\nCó mã giảm giá', 'area']]},
+  est3: {name: 'Ước lượng ba điểm và theo tỷ lệ', hint: 'Đơn vị tùy chọn: người-giờ, người-ngày…', inputs: [['a', 'Lạc quan (a)', 6], ['m', 'Khả dĩ nhất (m)', 9], ['b', 'Bi quan (b)', 18], ['dev', 'Công sức dev', 600], ['rd', 'Tỷ lệ dev', 3], ['rt', 'Tỷ lệ test', 2]]},
+  risk: {name: 'Ma trận rủi ro', hint: 'Kéo để chọn khả năng xảy ra và tác động (1–5).', inputs: [['l', 'Khả năng', 4, 'range'], ['i', 'Tác động', 5, 'range']]}
+};
+function labHtml(kind){
+  if (LABX[kind]) return `<div class="lab" data-lab="${kind}"><div class="lab-h"><span class="pill">Lab</span><b>${LABX[kind].name}</b></div><p class="small muted">${LABX[kind].hint}</p><div class="lab-x"></div></div>`;
+  const L = LABS[kind]; if (!L) return '';
+  const field = ([k, t, v, type]) => type === 'area' ? `<label class="lab-f wide"><span>${t}</span><textarea data-k="${k}" rows="4">${esc(v)}</textarea></label>`
+    : type === 'range' ? `<label class="lab-f"><span>${t}: <b data-show="${k}">${v}</b></span><input type="range" min="1" max="5" step="1" data-k="${k}" value="${v}"></label>`
+    : `<label class="lab-f"><span>${t}</span><input type="number" inputmode="decimal" data-k="${k}" value="${v}"></label>`;
+  return `<div class="lab" data-lab="${kind}"><div class="lab-h"><span class="pill">Lab</span><b>${L.name}</b></div><p class="small muted">${L.hint}</p>
+    <div class="lab-in">${L.inputs.map(field).join('')}</div><div class="lab-out" aria-live="polite"></div></div>`;
+}
+const chips = (arr, cls) => arr.map(([v, ok]) => `<span class="vchip ${ok ? 'ok' : 'no'} ${cls || ''}">${v}</span>`).join('');
+const labCalc = {
+  bva(v){
+    const a = Math.round(v.min), b = Math.round(v.max);
+    if (!isFinite(a) || !isFinite(b)) return '<p class="muted">Nhập hai số nguyên.</p>';
+    if (b < a) return '<p class="bad-t">Giá trị lớn nhất phải ≥ nhỏ nhất.</p>';
+    const ok = x => x >= a && x <= b, uniq = xs => [...new Set(xs)].sort((x, y) => x - y).map(x => [x, ok(x)]);
+    const two = uniq([a - 1, a, b, b + 1]), three = uniq([a - 1, a, a + 1, b - 1, b, b + 1]);
+    const mid = Math.floor((a + b) / 2);
+    return `<div class="tablewrap"><table><thead><tr><th>Phân vùng</th><th>Khoảng</th><th>Ví dụ EP</th></tr></thead><tbody>
+      <tr><td><span class="vchip no">Không hợp lệ</span></td><td>≤ ${a - 1}</td><td class="mono">${a - 10}</td></tr>
+      <tr><td><span class="vchip ok">Hợp lệ</span></td><td>${a} – ${b}</td><td class="mono">${mid}</td></tr>
+      <tr><td><span class="vchip no">Không hợp lệ</span></td><td>≥ ${b + 1}</td><td class="mono">${b + 10}</td></tr></tbody></table></div>
+      <div class="lab-r"><b>EP:</b> 3 vùng → tối thiểu 3 ca kiểm thử.</div>
+      <div class="lab-r"><b>BVA 2 giá trị (${two.length}):</b> ${chips(two)}</div>
+      <div class="lab-r"><b>BVA 3 giá trị (${three.length}):</b> ${chips(three)}</div>`;
+  },
+  dt(v){
+    const cs = String(v.conds || '').split('\n').map(s => s.trim()).filter(Boolean).slice(0, 5);
+    if (!cs.length) return '<p class="muted">Nhập ít nhất một điều kiện.</p>';
+    const n = cs.length, cols = 1 << n;
+    return `<div class="lab-r"><b>${n} điều kiện → 2<sup>${n}</sup> = ${cols} quy tắc (cột).</b> Gạch bỏ cột không khả thi và gộp cột có điều kiện không liên quan (–) để rút gọn.</div>
+      <div class="tablewrap"><table class="dt"><thead><tr><th></th>${Array.from({length: cols}, (_, j) => `<th>R${j + 1}</th>`).join('')}</tr></thead><tbody>
+      ${cs.map((c, r) => `<tr><td>${esc(c)}</td>${Array.from({length: cols}, (_, j) => { const t = !((j >> (n - 1 - r)) & 1); return `<td class="${t ? 'good-t' : 'bad-t'}">${t ? 'T' : 'F'}</td>`; }).join('')}</tr>`).join('')}
+      <tr><td class="muted">Hành động</td>${Array.from({length: cols}, () => '<td class="muted">?</td>').join('')}</tr></tbody></table></div>`;
+  },
+  est3(v){
+    const {a, m, b} = v; let out = '';
+    if ([a, m, b].some(x => !isFinite(x))) out = '<p class="muted">Nhập đủ a, m, b.</p>';
+    else if (!(a <= m && m <= b)) out = '<p class="bad-t">Cần a ≤ m ≤ b.</p>';
+    else { const E = (a + 4 * m + b) / 6, SD = (b - a) / 6, f = x => +x.toFixed(2);
+      out = `<div class="lab-r"><b>E</b> = (${a} + 4×${m} + ${b}) / 6 = <b class="big">${f(E)}</b></div><div class="lab-r"><b>SD</b> = (${b} − ${a}) / 6 = <b>${f(SD)}</b> → khoảng <b>${f(E - SD)} – ${f(E + SD)}</b></div>`; }
+    if (isFinite(v.dev) && v.rd > 0 && v.rt >= 0) out += `<div class="lab-r"><b>Theo tỷ lệ</b> dev : test = ${v.rd} : ${v.rt} → công sức test ≈ ${v.dev} × ${v.rt} / ${v.rd} = <b>${+(v.dev * v.rt / v.rd).toFixed(2)}</b></div>`;
+    return out;
+  },
+  risk(v){
+    const l = v.l, i = v.i, s = l * i, lv = s >= 15 ? ['Rất cao', 'bad'] : s >= 8 ? ['Cao', 'warn'] : s >= 4 ? ['Trung bình', 'mid'] : ['Thấp', 'good'];
+    let g = '<div class="rgrid" role="img" aria-label="Ma trận rủi ro 5 x 5">';
+    for (let y = 5; y >= 1; y--) for (let x = 1; x <= 5; x++){ const p = x * y, c = p >= 15 ? 'bad' : p >= 8 ? 'warn' : p >= 4 ? 'mid' : 'good'; g += `<span class="r-${c} ${x === l && y === i ? 'on' : ''}">${p}</span>`; }
+    g += '</div>';
+    return `<div class="rbox">${g}<div class="stack" style="gap:6px"><div class="lab-r">Mức rủi ro = ${l} × ${i} = <b class="big">${s}</b></div><div><span class="vchip r-${lv[1]}">${lv[0]}</span></div>
+      <p class="small muted">Trục ngang: khả năng xảy ra; trục dọc: tác động. Ngưỡng màu chỉ là ví dụ, mỗi tổ chức tự quy định. Rủi ro càng cao càng test sớm, kỹ và độc lập hơn.</p></div></div>`;
+  }
+};
+
+/* Lab có trạng thái riêng: chuyển trạng thái và bao phủ câu lệnh/nhánh */
+const ST = {
+  states: ['Mới', 'Đã thanh toán', 'Đang giao', 'Hoàn tất', 'Đã hủy'],
+  events: ['thanh toán', 'giao hàng', 'nhận hàng', 'hủy'],
+  next: {'Mới|thanh toán': 'Đã thanh toán', 'Mới|hủy': 'Đã hủy', 'Đã thanh toán|giao hàng': 'Đang giao', 'Đã thanh toán|hủy': 'Đã hủy', 'Đang giao|nhận hàng': 'Hoàn tất'}
+};
+const COV = {
+  code: [['function phiShip(tong, vip) {', 0], ['  let phi = 30000', 1], ['  if (tong >= 150000) {', 1], ['    phi = 0', 1], ['  }', 0], ['  if (vip) {', 1], ['    phi = phi / 2', 1], ['  }', 0], ['  return phi', 1], ['}', 0]],
+  run(t, v){ const ex = [1, 2, 5, 8]; const b = []; let phi = 30000; if (t >= 150000){ ex.push(3); phi = 0; b.push('d1T'); } else b.push('d1F'); if (v){ ex.push(6); phi = phi / 2; b.push('d2T'); } else b.push('d2F'); return {ex, b, phi}; }
+};
+const LABX = {
+  st: {name: 'Mô phỏng chuyển trạng thái: đơn hàng', hint: 'Mỗi ca kiểm thử bắt đầu ở “Mới”. Bấm sự kiện để chuyển trạng thái, xem độ bao phủ tăng dần. Thử cả sự kiện không hợp lệ (mỗi ca chỉ nên có một).',
+    init(box){
+      const S = {cur: 'Mới', path: ['Mới'], cases: 1, vs: new Set(['Mới']), vt: new Set(), all: new Set(), badInCase: 0, log: []};
+      const nValid = Object.keys(ST.next).length, nAll = ST.states.length * ST.events.length;
+      const draw = (msg) => {
+        const cell = (st, ev) => { const k = st + '|' + ev, to = ST.next[k], hit = S.all.has(k); return `<td class="${to ? 'v' : 'iv'} ${hit ? 'hit' : ''}">${to ? esc(to) : '–'}</td>`; };
+        box.innerHTML = `<div class="st-now"><span class="small muted">Ca ${S.cases} · trạng thái hiện tại</span><b>${esc(S.cur)}</b><span class="small muted mono">${S.path.map(esc).join(' → ')}</span></div>
+          <div class="row" style="gap:8px">${ST.events.map(ev => `<button class="btn ghost sm" data-ev="${ev}">${ev}</button>`).join('')}<button class="btn link sm" data-new>Ca kiểm thử mới ↺</button></div>
+          ${msg ? `<div class="small ${msg[0]}">${msg[1]}</div>` : ''}
+          <div class="lab-out"><div class="covrow">
+            <span>Mọi trạng thái <b>${S.vs.size}/${ST.states.length}</b>${bar(pct(S.vs.size, ST.states.length))}</span>
+            <span>Chuyển hợp lệ <b>${S.vt.size}/${nValid}</b>${bar(pct(S.vt.size, nValid))}</span>
+            <span>Mọi chuyển <b>${S.all.size}/${nAll}</b>${bar(pct(S.all.size, nAll))}</span></div>
+            <div class="tablewrap"><table class="st-t"><thead><tr><th>Trạng thái \\ sự kiện</th>${ST.events.map(e => `<th>${e}</th>`).join('')}</tr></thead>
+            <tbody>${ST.states.map(st => `<tr class="${st === S.cur ? 'cur' : ''}"><td>${S.vs.has(st) ? '✓ ' : ''}${esc(st)}</td>${ST.events.map(ev => cell(st, ev)).join('')}</tr>`).join('')}</tbody></table></div>
+            <p class="small muted">Ô có tên trạng thái là chuyển hợp lệ, ô “–” là chuyển không hợp lệ. Ô tô màu là đã được thử.</p></div>`;
+        box.querySelectorAll('[data-ev]').forEach(b => b.onclick = () => {
+          const ev = b.dataset.ev, k = S.cur + '|' + ev, to = ST.next[k]; S.all.add(k);
+          if (to){ S.vt.add(k); S.cur = to; S.vs.add(to); S.path.push(to); draw(['good-t', `Hợp lệ: ${ev} → ${to}`]); }
+          else { S.badInCase++; S.path.push('✕ ' + ev); draw(['bad-t', S.badInCase > 1 ? 'Ca này đã có nhiều hơn một chuyển không hợp lệ: lỗi có thể bị che lấp. Nên bắt đầu ca mới.' : `Không hợp lệ: “${ev}” từ “${S.cur}”, trạng thái giữ nguyên. Hệ thống đúng phải từ chối.`]); }
+        });
+        box.querySelector('[data-new]').onclick = () => { S.cur = 'Mới'; S.path = ['Mới']; S.cases++; S.badInCase = 0; draw(['muted', 'Bắt đầu ca kiểm thử mới từ “Mới”.']); };
+      };
+      draw();
+    }},
+  cov: {name: 'Đo bao phủ câu lệnh và nhánh', hint: 'Nhập dữ liệu cho từng ca kiểm thử rồi bấm Chạy. Dòng đã chạy sáng lên; bao phủ cộng dồn qua các ca.',
+    init(box){
+      const S = {lines: new Set(), br: new Set(), runs: []};
+      const nSt = COV.code.filter(x => x[1]).length;
+      const BR = [['d1T', 'if 1 đúng'], ['d1F', 'if 1 sai'], ['d2T', 'if 2 đúng'], ['d2F', 'if 2 sai']];
+      const draw = (last) => {
+        const stc = [...S.lines].filter(i => COV.code[i][1]).length;
+        box.innerHTML = `<div class="row" style="gap:10px;align-items:flex-end"><label class="lab-f"><span>tong (đồng)</span><input type="number" id="cvT" value="${last ? last.t : 200000}"></label>
+          <label class="small row" style="gap:6px;min-height:40px"><input type="checkbox" id="cvV" ${last && last.v ? 'checked' : ''}> vip</label>
+          <button class="btn sm" id="cvRun">Chạy ca kiểm thử</button><button class="btn link sm" id="cvReset">Làm lại</button></div>
+          <pre class="code">${COV.code.map(([l, st], i) => `<span class="${last && last.ex.includes(i) ? 'now' : S.lines.has(i) ? 'ran' : ''} ${st ? '' : 'ne'}"><i>${i + 1}</i>${esc(l)}</span>`).join('')}</pre>
+          <div class="lab-out"><div class="covrow"><span>Bao phủ câu lệnh <b>${stc}/${nSt}</b> = ${pct(stc, nSt)}%${bar(pct(stc, nSt))}</span><span>Bao phủ nhánh <b>${S.br.size}/4</b> = ${pct(S.br.size, 4)}%${bar(pct(S.br.size, 4))}</span></div>
+            <div class="row" style="gap:6px">${BR.map(([k, t]) => `<span class="vchip ${S.br.has(k) ? 'ok' : 'no'}">${t}</span>`).join('')}</div>
+            ${S.runs.length ? `<ol class="small" style="margin:0;padding-left:20px">${S.runs.map(r => `<li>tong = ${r.t.toLocaleString('vi-VN')}, vip = ${r.v} → phí ${r.phi.toLocaleString('vi-VN')}</li>`).join('')}</ol>` : '<p class="small muted">Gợi ý: một ca đạt 100% câu lệnh, nhưng cần ít nhất 2 ca để đạt 100% nhánh.</p>'}
+            ${stc === nSt && S.br.size < 4 ? '<div class="small good-t">Đã đạt 100% bao phủ câu lệnh nhưng chưa đủ nhánh: đúng như lý thuyết, 100% câu lệnh không kéo theo 100% nhánh.</div>' : ''}
+            ${S.br.size === 4 ? `<div class="small good-t">100% bao phủ nhánh với ${S.runs.length} ca, và vì thế cũng 100% câu lệnh.</div>` : ''}
+            <p class="small muted">Ở đây đếm 6 câu lệnh thực thi được và 4 nhánh có điều kiện (đúng/sai của 2 câu if).</p></div>`;
+        $('#cvRun').onclick = () => { const t = parseFloat($('#cvT').value) || 0, v = $('#cvV').checked, r = COV.run(t, v); r.ex.forEach(i => S.lines.add(i)); r.b.forEach(b => S.br.add(b)); const rec = {t, v, phi: r.phi, ex: r.ex}; S.runs.push(rec); draw(rec); };
+        $('#cvReset').onclick = () => { S.lines.clear(); S.br.clear(); S.runs = []; draw(); };
+      };
+      draw();
+    }}
+};
+function initLabs(){
+  app.querySelectorAll('.lab').forEach(el => {
+    const kind = el.dataset.lab, out = el.querySelector('.lab-out');
+    if (LABX[kind]){ LABX[kind].init(el.querySelector('.lab-x')); return; }
+    const run = () => { const v = {}; el.querySelectorAll('[data-k]').forEach(i => { v[i.dataset.k] = i.tagName === 'TEXTAREA' ? i.value : parseFloat(i.value); const sh = el.querySelector(`[data-show="${i.dataset.k}"]`); if (sh) sh.textContent = i.value; }); out.innerHTML = labCalc[kind](v); };
+    el.querySelectorAll('[data-k]').forEach(i => i.addEventListener('input', run)); run();
+  });
+}
 function learn(){
-  const c = chap(learnCh);
+  const c = chap(learnCh), secs = LESSONS[c.n];
+  const tabs = learnHead('learn') + `
+  <div class="tabs" role="group" aria-label="Chọn chương">${LESSONS[0] ? `<button aria-pressed="${learnCh === 0}" data-c="0">Bắt đầu</button>` : ''}${cert.chapters.map(x => `<button aria-pressed="${x.n === learnCh}" data-c="${x.n}">Chương ${x.n}${learned[x.n] ? '<span class="ok" aria-label="đã học">✓</span>' : ''}</button>`).join('')}</div>`;
+  if (!secs) return learnSummary(c, tabs);
+  const sid = secs.find(s => s.id === learnSec[c.n]) ? learnSec[c.n] : secs[0].id;
+  const i = secs.findIndex(s => s.id === sid), s = secs[i];
+  const qs = cert.bank.filter(q => s.los.includes(q.lo)).slice(0, s.los[0] && (cert.los[s.los[0]] || [])[0] === 'K3' ? 4 : 3);
+  app.innerHTML = tabs + `
+  <div class="lesson">
+    <nav class="card toc" aria-label="Mục lục chương ${c.n}">
+      ${tocItems(secs, sid, c.n === 0)}
+    </nav>
+    <article class="card lesson-body ${chk.anim ? 'qin' : ''}">
+      <div class="stack" style="gap:6px"><span class="meta">${c.n ? 'Chương ' + c.n : 'Bắt đầu · kiến thức nền, không có trong đề'} · Mục ${s.id} · ${s.minutes} phút</span>
+        <h2 class="h1" style="font-size:28px">${esc(s.title)}</h2><span class="muted" lang="en">${esc(s.en)}</span>
+        <div class="row" style="margin-top:4px">${s.los.map(lo => `<span class="pill mute" title="${esc((cert.los[lo] || ['', ''])[1])}">${lo} · ${(cert.los[lo] || ['?'])[0]}</span>`).join('')}</div></div>
+      <div class="example"><b>Ví dụ thực tế</b>${md(s.example)}</div>
+      ${s.blocks.map(block).join('')}
+      ${s.terms ? `<div class="stack" style="gap:8px"><h3 class="sec">Từ khóa của mục</h3><div class="terms">${s.terms.map(([en, vi]) => `<span><b lang="en">${esc(en)}</b> · ${esc(vi)}</span>`).join('')}</div></div>` : ''}
+      ${s.summary ? `<section class="sumbox" aria-label="Tóm tắt mục ${s.id}"><div class="row between"><span class="sum-h">Tóm tắt mục ${s.id}</span><span class="row" style="gap:12px"><button class="btn link sm" id="toCarou">Tạo carousel</button><a href="#review" class="small" id="toReview">Xem trong Ôn nhanh →</a></span></div>
+        <ol>${s.summary.map(x => `<li>${md(x)}</li>`).join('')}</ol></section>` : ''}
+      ${qs.length ? `<div class="stack"><h3 class="sec">Kiểm tra nhanh (${qs.length} câu)</h3>${qs.map((q, n) => quick(q, n)).join('')}</div>` : ''}
+      <div class="row between" style="border-top:1px solid var(--line);padding-top:16px">
+        <button class="btn ghost" id="sPrev" ${i === 0 ? 'disabled' : ''}>← Mục trước</button>
+        <button class="btn ${secDone[s.id] ? 'ghost' : ''}" id="sDone">${secDone[s.id] ? 'Đã hiểu ✓' : 'Đã hiểu mục này'}</button>
+        <button class="btn ghost" id="sNext">${i < secs.length - 1 ? 'Mục sau →' : c.n === 0 ? 'Vào chương 1 →' : 'Tóm tắt chương →'}</button>
+      </div>
+    </article>
+  </div>`;
+  chk.anim = false;
+  initLabs();
+  const tr = $('#toReview'); if (tr) tr.onclick = () => { revCh = c.n; revFocus = s.id; };
+  const tc = $('#toCarou'); if (tc) tc.onclick = () => carousel(Object.assign({c: c.n}, s));
+  const goSec = id => { learnSec[c.n] = id; store.set('learnSec', learnSec); chk.anim = true; learn(); window.scrollTo({top: 0, behavior: reduceMotion() ? 'auto' : 'smooth'}); };
+  link('[data-c]', e => { learnCh = +e.currentTarget.dataset.c; learn(); });
+  link('[data-s]', e => { const id = e.currentTarget.dataset.s; if (id === 'sum'){ learnSec[c.n] = 'sum'; store.set('learnSec', learnSec); learnSummary(c, tabs, true); } else goSec(id); });
+  $('#sPrev').onclick = () => goSec(secs[i - 1].id);
+  $('#sNext').onclick = () => { if (i < secs.length - 1) goSec(secs[i + 1].id); else if (c.n === 0){ learnCh = 1; learn(); window.scrollTo(0, 0); } else { learnSec[c.n] = 'sum'; store.set('learnSec', learnSec); learnSummary(c, tabs, true); window.scrollTo(0, 0); } };
+  $('#sDone').onclick = () => { if (secDone[s.id]) delete secDone[s.id]; else { secDone[s.id] = Date.now(); burstFrom($('#sDone')); }
+    store.set('secDone_ctfl', secDone);
+    if (c.n === 0){} else if (secs.every(x => secDone[x.id])) learned[c.n] = learned[c.n] || Date.now(); else delete learned[c.n];
+    save.learned(); if (secDone[s.id] && i < secs.length - 1) setTimeout(() => goSec(secs[i + 1].id), 500); else learn(); };
+  app.querySelectorAll('[data-qk]').forEach(b => b.onclick = () => { const [id, j] = b.dataset.qk.split('|'); if (chk[id] !== undefined) return; chk[id] = +j; const q = byId[id], ord = perm(q.o.length, rng(hash(id))); record(id, +j === ord.indexOf(q.a)); learn(); const el = app.querySelector(`[data-qk="${id}|${j}"]`); if (el) feedbackEl(el, +j === ord.indexOf(q.a)); });
+  keys.ArrowRight = () => $('#sNext').click(); keys.ArrowLeft = () => { if (i > 0) $('#sPrev').click(); };
+  keys.L = () => { lang = nextLang(lang); save.lang(); learn(); };
+  if (c.n && learnSec[c.n] === 'sum') learnSummary(c, tabs, true);
+}
+function quick(q, n){
+  const ord = perm(q.o.length, rng(hash(q.id))), ci = ord.indexOf(q.a), picked = chk[q.id], ans = picked !== undefined;
+  return `<div class="stack" style="gap:10px;padding:14px;border:1px solid var(--line);border-radius:12px"><span class="meta">Câu ${n + 1} · ${q.lo} · ${q.k}</span>${stemHtml(q, lang)}
+    <div class="opts">${ord.map((oi, j) => `<button class="opt ${ans ? (j === ci ? 'ok' : j === picked ? 'no' : '') : ''}" data-qk="${q.id}|${j}" ${ans ? 'disabled' : ''}><span class="k">${L[j]}</span>${optText(q, oi, lang)}</button>`).join('')}</div>
+    ${ans ? `<div class="exp"><b style="color:var(--${picked === ci ? 'good' : 'bad'})">${picked === ci ? 'Chính xác.' : 'Chưa đúng. Đáp án: ' + L[ci] + '.'}</b> ${esc(q.e)}</div>` : ''}</div>`;
+}
+function feedbackEl(el, ok){ if (ok){ el.classList.add('pop'); burstFrom(el); } else el.classList.add('shake'); }
+function learnSummary(c, tabs, inLesson){
   const n = cert.bank.filter(q => q.c === c.n).length;
   const los = Object.entries(cert.los).filter(([k]) => k.startsWith('FL-' + c.n + '.'));
-  app.innerHTML = `
-  <div class="row between"><div><span class="eyebrow">Bước 1 · Học</span><h1 class="h2" style="font-size:26px;margin-top:4px">CTFL v4.0.1 theo chương</h1></div>
-  <span class="muted small">Đã học ${Object.keys(learned).length}/6 chương</span></div>
-  <div class="tabs" role="group" aria-label="Chọn chương">${cert.chapters.map(x => `<button aria-pressed="${x.n === learnCh}" data-c="${x.n}">Chương ${x.n}${learned[x.n] ? '<span class="ok" aria-label="đã học">✓</span>' : ''}</button>`).join('')}</div>
-  <article class="card stack">
+  const secs = LESSONS[c.n];
+  const body = `<article class="card stack ${inLesson ? 'qin' : ''}">
     <div class="row"><span class="pill">${c.time} phút học</span><span class="pill pink">${c.exam}/40 câu trong đề</span>${learned[c.n] ? '<span class="pill good">Đã học xong</span>' : ''}</div>
-    <div><h2 class="h1" style="font-size:30px">Chương ${c.n}. ${esc(c.title)}</h2><p class="muted" lang="en">${esc(EN.chapters[c.n] || '')}</p></div>
-    <div class="callout"><b>Ví dụ thực tế</b>${esc(c.story)}</div>
-    <h3 class="h2">Kiến thức chính</h3>
+    <div><h2 class="h1" style="font-size:28px">${secs ? 'Tóm tắt chương ' + c.n : 'Chương ' + c.n + '. ' + esc(c.title)}</h2><p class="muted" lang="en">${esc(EN.chapters[c.n] || '')}</p></div>
+    ${secs ? '' : '<div class="callout"><b>Bài học chi tiết đang được soạn</b>Chương này hiện có bản tóm tắt. Bài chi tiết theo từng mục, kèm ví dụ và kiểm tra nhanh, sẽ có sớm.</div>'}
+    <div class="example"><b>Ví dụ thực tế</b>${esc(c.story)}</div>
+    <h3 class="sec">Kiến thức chính</h3>
     <ul class="pts">${c.points.map(p => `<li>${esc(p)}</li>`).join('')}</ul>
+    ${secs ? `<h3 class="sec">Tóm tắt từng mục</h3><div class="sumlist">${secs.map(x => `<details class="sumbox"><summary><span class="sum-h">${x.id} · ${esc(x.title)}</span></summary><ol>${(x.summary || []).map(t => `<li>${md(t)}</li>`).join('')}</ol></details>`).join('')}</div>` : ''}
     <div class="callout bad"><b>Bẫy hay gặp trong đề</b><ul class="pts">${c.traps.map(p => `<li>${esc(p)}</li>`).join('')}</ul></div>
     <div class="callout good"><b>Mẹo nhớ</b>${esc(c.mnemonic)}</div>
-    <details><summary class="muted" style="cursor:pointer">Mục tiêu học tập của chương (${los.length}) · song ngữ</summary>
+    <details><summary>Mục tiêu học tập của chương (${los.length}) · song ngữ</summary>
       <div class="tablewrap" style="margin-top:8px"><table><tbody>${los.map(([k, v]) => `<tr><td class="mono" style="white-space:nowrap">${k}</td><td><span class="pill mute">${v[0]}</span></td><td><span lang="en">${esc(EN.los[k] || '')}</span><br><span class="muted small">${esc(v[1])}</span></td></tr>`).join('')}</tbody></table></div>
     </details>
     <div class="row">
-      <button class="btn ${learned[c.n] ? 'ghost' : ''}" id="mark">${learned[c.n] ? 'Bỏ đánh dấu đã học' : 'Đánh dấu đã học xong'}</button>
-      <button class="btn ghost" id="toPractice">Luyện ${n} câu chương ${c.n}</button>
+      ${secs ? '' : `<button class="btn ${learned[c.n] ? 'ghost' : ''}" id="mark">${learned[c.n] ? 'Bỏ đánh dấu đã học' : 'Đánh dấu đã học xong'}</button>`}
+      <button class="btn ${secs ? '' : 'ghost'}" id="toPractice">Luyện ${n} câu chương ${c.n}</button>
+      ${secs ? `<button class="btn ghost" id="toRev">Ôn nhanh chương ${c.n}</button>` : ''}
       <button class="btn ghost" id="toCards">Ôn thuật ngữ chương ${c.n}</button>
     </div>
   </article>`;
+  if (secs){
+    app.innerHTML = tabs + `<div class="lesson"><nav class="card toc" aria-label="Mục lục chương ${c.n}">
+      ${tocItems(secs, 'sum')}</nav>${body}</div>`;
+    link('[data-s]', e => { const id = e.currentTarget.dataset.s; if (id !== 'sum'){ learnSec[c.n] = id; store.set('learnSec', learnSec); chk.anim = true; learn(); } });
+  } else app.innerHTML = tabs + body;
   link('[data-c]', e => { learnCh = +e.currentTarget.dataset.c; learn(); });
-  $('#mark').onclick = () => { if (learned[c.n]) delete learned[c.n]; else learned[c.n] = Date.now(); save.learned(); learn(); };
+  const mk = $('#mark'); if (mk) mk.onclick = () => { if (learned[c.n]) delete learned[c.n]; else learned[c.n] = Date.now(); save.learned(); learn(); };
   $('#toPractice').onclick = () => { pcfg = {ch: c.n, mode: 'all'}; pmode = 'q'; pr = null; go('practice'); };
   $('#toCards').onclick = () => { cardCh = c.n; cardIdx = 0; pmode = 'cards'; go('practice'); };
-  keys.ArrowRight = () => { if (learnCh < 6){ learnCh++; learn(); } };
-  keys.ArrowLeft = () => { if (learnCh > 1){ learnCh--; learn(); } };
+  const trv = $('#toRev'); if (trv) trv.onclick = () => { revCh = c.n; revFocus = null; go('review'); };
+  keys = {ArrowRight: () => { if (learnCh < 6){ learnCh++; learn(); } }, ArrowLeft: () => { if (learnCh > 1){ learnCh--; learn(); } }};
 }
+
+function learnHead(mode){
+  const n = Object.keys(LESSONS).filter(c => +c).reduce((t, c) => t + LESSONS[c].length, 0);
+  return `<div class="row between"><div><span class="eyebrow">Bước 1 · Học</span><h1 class="h2" style="font-size:24px;margin-top:4px">${mode === 'review' ? 'Ôn nhanh' : 'CTFL v4.0.1 theo chương'}</h1></div>
+    <div class="row" style="gap:12px"><span class="muted small">${mode === 'review' ? `${n} mục · tóm tắt cuối mỗi bài` : `Đã học ${Object.keys(learned).length}/6 chương`}</span>
+    <div class="seg" role="group" aria-label="Chế độ học"><button data-lm="learn" aria-pressed="${mode === 'learn'}">Bài học</button><button data-lm="review" aria-pressed="${mode === 'review'}">Ôn nhanh</button></div></div></div>`;
+}
+document.addEventListener('click', e => { const b = e.target.closest && e.target.closest('[data-lm]'); if (b && b.getAttribute('aria-pressed') !== 'true') go(b.dataset.lm); });
+
+/* ============ 1b. ÔN NHANH ============ */
+let revCh = 0, revMode = store.get('revMode', 'list'), revFocus = null, revIdx = 0, revShow = false, revOrder = null, revDue = false;
+let reviewed = store.get('reviewed_ctfl', {});
+const DAY = 864e5;
+function allSecs(){ const out = []; Object.keys(LESSONS).filter(c => +c).sort((a, b) => a - b).forEach(c => LESSONS[c].forEach(s => out.push(Object.assign({c: +c}, s)))); return out; }
+function revState(id){
+  const t = reviewed[id]; if (!t) return ['Chưa ôn', 'mute', true];
+  const d = Math.floor((Date.now() - t) / DAY);
+  return d >= 3 ? [`Nên ôn lại · ${d} ngày trước`, 'pink', true] : [d ? `Đã ôn · ${d} ngày trước` : 'Đã ôn hôm nay', 'good', false];
+}
+function markRev(id, on){ if (on) reviewed[id] = Date.now(); else delete reviewed[id]; store.set('reviewed_ctfl', reviewed); }
+function review(){
+  const all = allSecs(), inCh = all.filter(s => !revCh || s.c === revCh);
+  let list = revDue ? inCh.filter(s => revState(s.id)[2]) : inCh;
+  const done = inCh.filter(s => reviewed[s.id]).length;
+  const bar = `<div class="card stack revbar no-print" style="gap:12px">
+    <div class="row between"><div class="tabs" role="group" aria-label="Chọn chương" style="margin:0"><button data-rc="0" aria-pressed="${!revCh}">Tất cả</button>${cert.chapters.map(x => `<button data-rc="${x.n}" aria-pressed="${revCh === x.n}">Chương ${x.n}</button>`).join('')}</div>
+      <div class="seg" role="group" aria-label="Kiểu ôn"><button data-rm="list" aria-pressed="${revMode === 'list'}">Danh sách</button><button data-rm="cards" aria-pressed="${revMode === 'cards'}">Thẻ tự kiểm tra</button></div></div>
+    <div class="row between"><div class="row" style="gap:10px;flex:1;min-width:220px"><span class="small">Đã ôn <b>${done}/${inCh.length}</b> mục</span><div class="bar" style="flex:1;max-width:260px"><i style="width:${pct(done, inCh.length)}%"></i></div></div>
+      <div class="row" style="gap:8px"><label class="small row" style="gap:6px"><input type="checkbox" id="rvDue" ${revDue ? 'checked' : ''}> Chỉ mục cần ôn</label>${revMode === 'list' ? '<button class="btn ghost sm" id="rvPrint">In / lưu PDF</button>' : ''}</div></div></div>`;
+  if (!list.length){ app.innerHTML = learnHead('review') + bar + `<div class="card stack" style="align-items:flex-start"><h2 class="h2">Không còn mục nào cần ôn</h2><p class="muted">Mọi mục trong phạm vi này đã được ôn trong 3 ngày gần đây. Bỏ lọc để xem lại toàn bộ.</p></div>`; bindRev(); return; }
+  if (revMode === 'cards'){
+    if (revOrder) list = revOrder.map(id => list.find(s => s.id === id)).filter(Boolean).concat(list.filter(s => !revOrder.includes(s.id)));
+    if (revIdx >= list.length) revIdx = 0;
+    const s = list[revIdx], st = revState(s.id);
+    app.innerHTML = learnHead('review') + bar + `<article class="card revcard stack ${chk.anim ? 'qin' : ''}">
+      <div class="row between"><span class="meta">Thẻ ${revIdx + 1}/${list.length} · Chương ${s.c} · Mục ${s.id}</span><span class="pill ${st[1]}">${st[0]}</span></div>
+      <h2 class="h1" style="font-size:26px">${esc(s.title)}</h2><span class="muted" lang="en">${esc(s.en)}</span>
+      ${revShow ? `<ol class="revol">${s.summary.map(x => `<li>${md(x)}</li>`).join('')}</ol>
+        <div class="row"><button class="btn" id="rvGot">Đã nhớ <kbd>Enter</kbd></button><button class="btn ghost" id="rvLearn">Học lại mục này</button></div>`
+      : `<div class="recall"><p>Nhớ lại <b>${s.summary.length} ý chính</b> của mục này. Nói thành lời hoặc viết ra giấy, rồi lật thẻ để so.</p><button class="btn" id="rvFlip">Lật thẻ <kbd>Space</kbd></button></div>`}
+      <div class="row between" style="border-top:1px solid var(--line);padding-top:14px"><button class="btn ghost" id="rvPrev" ${revIdx ? '' : 'disabled'}>← Thẻ trước</button><button class="btn ghost" id="rvShuf">Xáo trộn <kbd>S</kbd></button><button class="btn ghost" id="rvNext">Thẻ sau →</button></div></article>`;
+    chk.anim = false;
+    const nav = d => { revIdx = (revIdx + d + list.length) % list.length; revShow = false; chk.anim = true; review(); };
+    const flip = () => { revShow = !revShow; review(); };
+    const got = () => { markRev(s.id, true); burstFrom($('#rvGot')); setTimeout(() => nav(1), 280); };
+    $('#rvPrev').onclick = () => nav(-1); $('#rvNext').onclick = () => nav(1);
+    $('#rvShuf').onclick = () => { const r = rng(Date.now() >>> 0); revOrder = perm(list.length, r).map(i => list[i].id); revIdx = 0; revShow = false; chk.anim = true; review(); toast('Đã xáo trộn thẻ'); };
+    if (revShow){ $('#rvGot').onclick = got; $('#rvLearn').onclick = () => openSec(s); } else $('#rvFlip').onclick = flip;
+    keys = {Space: flip, ArrowRight: () => nav(1), ArrowLeft: () => { if (revIdx) nav(-1); }, S: () => $('#rvShuf').click(), Enter: () => { if (revShow) got(); else flip(); }};
+  } else {
+    app.innerHTML = learnHead('review') + bar + `<div class="print-only"><h1>The QA Lab · Ôn nhanh CTFL v4.0.1${revCh ? ' · Chương ' + revCh : ''}</h1></div>
+    <div class="revgrid">${list.map(s => { const st = revState(s.id); return `<article class="card rev ${revFocus === s.id ? 'focus' : ''}" id="rv-${s.id.replace(/\./g, '-')}">
+      <div class="row between"><span class="meta">Chương ${s.c} · Mục ${s.id}</span><span class="pill ${st[1]} no-print">${st[0]}</span></div>
+      <h3>${esc(s.title)}</h3>
+      <ol class="revol">${s.summary.map(x => `<li>${md(x)}</li>`).join('')}</ol>
+      <div class="row no-print" style="margin-top:auto"><button class="btn ghost sm ${reviewed[s.id] ? 'ok-b' : ''}" data-rd="${s.id}">${reviewed[s.id] ? 'Đã ôn ✓' : 'Đánh dấu đã ôn'}</button><button class="btn link sm" data-rg="${s.id}">Học lại →</button><button class="btn link sm" data-cr="${s.id}">Carousel</button></div></article>`; }).join('')}</div>`;
+    link('[data-rd]', e => { const id = e.currentTarget.dataset.rd, on = !reviewed[id]; markRev(id, on); if (on) burstFrom(e.currentTarget); revFocus = null; setTimeout(review, on ? 250 : 0); });
+    link('[data-rg]', e => openSec(all.find(s => s.id === e.currentTarget.dataset.rg)));
+    link('[data-cr]', e => carousel(all.find(s => s.id === e.currentTarget.dataset.cr)));
+    const pr = $('#rvPrint'); if (pr) pr.onclick = () => { try { window.print(); } catch(err){ toast('Trình duyệt chặn in ở đây'); } };
+    if (revFocus){ const el = document.getElementById('rv-' + revFocus.replace(/\./g, '-')); if (el) setTimeout(() => el.scrollIntoView({block: 'center', behavior: reduceMotion() ? 'auto' : 'smooth'}), 60); }
+  }
+  bindRev();
+}
+function bindRev(){
+  link('[data-rc]', e => { revCh = +e.currentTarget.dataset.rc; revIdx = 0; revOrder = null; revShow = false; revFocus = null; review(); });
+  link('[data-rm]', e => { revMode = e.currentTarget.dataset.rm; store.set('revMode', revMode); revIdx = 0; revShow = false; review(); });
+  const d = $('#rvDue'); if (d) d.onchange = () => { revDue = d.checked; revIdx = 0; review(); };
+}
+function openSec(s){ learnCh = s.c; learnSec[s.c] = s.id; store.set('learnSec', learnSec); go('learn'); }
 
 /* ============ 2. LUYỆN TẬP ============ */
 let pmode = 'q', pcfg = {ch: 1, mode: 'all'}, pr = null;
@@ -283,7 +638,7 @@ function questions(){
     keys.Enter = () => $('#again').click(); return;
   }
   const q = byId[pr.ids[pr.i]], order = pr.orders[pr.i], ci = correctIdx(q, order), ans = pr.picked !== null;
-  box.innerHTML = head + `<article class="card stack">
+  box.innerHTML = head + `<article class="card stack ${pr.anim ? 'qin' : ''}">
     <span class="meta">Chương ${q.c} · ${q.lo} · ${q.k}</span>
     ${stemHtml(q, lang)}
     <div class="opts">${order.map((oi, j) => `<button class="opt ${ans ? (j === ci ? 'ok' : j === pr.picked ? 'no' : '') : ''}" data-j="${j}" ${ans ? 'disabled' : ''}><span class="k">${L[j]}</span>${optText(q, oi, lang)}</button>`).join('')}</div>
@@ -291,8 +646,9 @@ function questions(){
   </article>
   <p class="keynote">Phím <kbd>1</kbd>–<kbd>4</kbd> chọn · <kbd>Enter</kbd> tiếp · <kbd>L</kbd> ngôn ngữ · <kbd>?</kbd> tất cả phím tắt</p>`;
   bind();
-  const pick = j => { pr.picked = j; const ok = j === ci; if (ok) pr.right++; record(q.id, ok); questions(); };
-  const next = () => { pr.i++; pr.picked = null; questions(); };
+  pr.anim = false;
+  const pick = j => { pr.picked = j; const ok = j === ci; if (ok) pr.right++; record(q.id, ok); questions(); feedback(j, ci, '#pbody .opt'); };
+  const next = () => { pr.i++; pr.picked = null; pr.anim = true; questions(); };
   if (!ans){ box.querySelectorAll('.opt').forEach(b => b.onclick = () => pick(+b.dataset.j)); keys.choose = pick; }
   else { $('#nx').onclick = next; keys.Enter = next; keys.ArrowRight = next; keys.N = next; }
 }
@@ -304,10 +660,10 @@ function cards(){
       <label class="hidden" for="fc">Chương</label><select id="fc"><option value="0">Tất cả chương</option>${cert.chapters.map(c => `<option value="${c.n}" ${c.n === cardCh ? 'selected' : ''}>${c.n}. ${esc(c.title)}</option>`).join('')}</select>
       <label class="check small"><input type="checkbox" id="fn" ${cardOnlyNew ? 'checked' : ''}> Chỉ thẻ chưa thuộc</label></div>
     <span class="small muted">${l.length ? cardIdx + 1 : 0}/${l.length} · đã thuộc ${Object.keys(known).length}/${cert.glossary.length}</span></div>
-  ${cur ? `<button class="card flash" id="fl" aria-label="Lật thẻ">
-      <span class="en" lang="en">${esc(cur.g[0])}</span>
-      ${cardFlip ? `<span class="vi">${esc(cur.g[1])}</span><span class="def">${esc(cur.g[2])}</span><span class="pill">Chương ${cur.g[3]}</span>` : '<span class="small muted">Nhấn để xem nghĩa</span>'}
-      ${known[cur.i] ? '<span class="pill good">Đã thuộc</span>' : ''}</button>
+  ${cur ? `<button class="flash-wrap ${cardFlip ? 'flipped' : ''}" id="fl" aria-label="Lật thẻ" aria-pressed="${cardFlip}"><div class="flash-inner">
+      <div class="face card flash"><span class="en" lang="en">${esc(cur.g[0])}</span><span class="small muted">Nhấn để xem nghĩa</span>${known[cur.i] ? '<span class="pill good">Đã thuộc</span>' : ''}</div>
+      <div class="face back card flash"><span class="small muted" lang="en">${esc(cur.g[0])}</span><span class="vi">${esc(cur.g[1])}</span><span class="def">${esc(cur.g[2])}</span><span class="pill">Chương ${cur.g[3]}</span></div>
+    </div></button>
     <div class="row between"><button class="btn ghost" id="fp">← Trước</button><div class="row"><button class="btn ghost" id="fr">Chưa thuộc</button><button class="btn" id="fk">Đã thuộc</button></div><button class="btn ghost" id="fx">Sau →</button></div>`
   : `<div class="card">Bạn đã thuộc hết thẻ trong nhóm này. Bỏ chọn “Chỉ thẻ chưa thuộc” để ôn lại.</div>`}
   <p class="keynote"><kbd>Space</kbd> lật · <kbd>←</kbd> <kbd>→</kbd> chuyển · <kbd>K</kbd> đã thuộc · <kbd>J</kbd> chưa thuộc</p>`;
@@ -315,7 +671,7 @@ function cards(){
   $('#fn').onchange = e => { cardOnlyNew = e.target.checked; cardIdx = 0; cardFlip = false; cards(); };
   if (!cur) return;
   const step = d => { cardIdx = (cardIdx + d + l.length) % l.length; cardFlip = false; cards(); };
-  const flip = () => { cardFlip = !cardFlip; cards(); };
+  const flip = () => { cardFlip = !cardFlip; const f = $('#fl'); f.classList.toggle('flipped', cardFlip); f.setAttribute('aria-pressed', cardFlip); };
   const ok = () => { known[cur.i] = true; save.known(); cardOnlyNew ? (cardFlip = false, cards()) : step(1); };
   const no = () => { delete known[cur.i]; save.known(); step(1); };
   $('#fl').onclick = flip; $('#fp').onclick = () => step(-1); $('#fx').onclick = () => step(1); $('#fk').onclick = ok; $('#fr').onclick = no;
@@ -390,6 +746,7 @@ function startExam(name, minutes, kind, elang){
     qids: ids, orders: ids.map(id => perm(byId[id].o.length, r)), ans: ids.map(() => null), flags: ids.map(() => false), i: 0, submittedAt: null};
   save.active(); room();
 }
+let roomLast = -1;
 function room(){
   document.body.classList.add('in-room');
   const a = active, q = byId[a.qids[a.i]], order = a.orders[a.i];
@@ -402,7 +759,7 @@ function room(){
   </div>
   <div id="warn"></div>
   <div class="room">
-    <article class="card stack">
+    <article class="card stack ${roomLast !== a.i ? 'qin' : ''}">
       <div class="row between"><span class="mono muted">CÂU ${a.i + 1} / ${a.qids.length}</span>
         <div class="row">${langSeg(a.lang, 'rLang')}<button class="btn ghost sm flagbtn" id="flag" aria-pressed="${a.flags[a.i]}">${a.flags[a.i] ? 'Đã đánh dấu' : 'Đánh dấu xem lại'}</button></div></div>
       ${stemHtml(q, a.lang)}
@@ -415,6 +772,7 @@ function room(){
       <div class="legend"><span class="l-ans">Đã trả lời</span><span>Chưa trả lời</span><span class="l-flag">Đánh dấu</span></div>
     </aside>
   </div>`;
+  roomLast = a.i;
   const re = () => { save.active(); room(); };
   const choose = j => { a.ans[a.i] = j; re(); };
   const move = d => { const n = a.i + d; if (n >= 0 && n < a.qids.length){ a.i = n; re(); } };
@@ -455,11 +813,12 @@ function submit(auto){
   active = null; save.active();
   document.body.classList.remove('in-room'); keys = {};
   reviewId = a.id; reviewFilter = 'all';
-  result(); window.scrollTo(0, 0);
+  result(); window.scrollTo(0, 0); enter();
+  if (a.score >= cert.exam.pass) setTimeout(() => confetti(innerWidth / 2, innerHeight / 3, 140), 400);
 }
 function ring(p, pass){
   const r = 56, c = 2 * Math.PI * r, col = pass ? 'var(--good)' : 'var(--bad)';
-  return `<svg class="ring" viewBox="0 0 132 132" role="img" aria-label="${p}%"><circle cx="66" cy="66" r="${r}" fill="none" stroke="var(--surface-2)" stroke-width="12"/>${p ? `<circle cx="66" cy="66" r="${r}" fill="none" stroke="${col}" stroke-width="12" stroke-linecap="round" stroke-dasharray="${c * p / 100} ${c}" transform="rotate(-90 66 66)"/>` : ''}<text x="66" y="62" text-anchor="middle" fill="var(--ink)" font-size="28" font-weight="800" font-family="Be Vietnam Pro, sans-serif">${p}%</text><text x="66" y="84" text-anchor="middle" fill="var(--muted)" font-size="12" font-family="Be Vietnam Pro, sans-serif">≥ 65% để đạt</text></svg>`;
+  return `<svg class="ring" viewBox="0 0 132 132" role="img" aria-label="${p}%"><circle cx="66" cy="66" r="${r}" fill="none" stroke="var(--surface-2)" stroke-width="12"/>${p ? `<circle cx="66" cy="66" r="${r}" fill="none" stroke="${col}" stroke-width="12" stroke-linecap="round" class="arc" stroke-dasharray="${c}" stroke-dashoffset="${c * (1 - p / 100)}" style="--c:${c}" transform="rotate(-90 66 66)"/>` : ''}<text x="66" y="62" text-anchor="middle" fill="var(--ink)" font-size="28" font-weight="700" font-family="Nunito Sans, sans-serif">${p}%</text><text x="66" y="84" text-anchor="middle" fill="var(--muted)" font-size="12" font-family="Nunito Sans, sans-serif">≥ 65% để đạt</text></svg>`;
 }
 function result(){
   const a = attempts.find(x => x.id === reviewId);
@@ -478,7 +837,7 @@ function result(){
   <section class="card score">
     ${ring(p, pass)}
     <div class="stack" style="flex:1;min-width:240px">
-      <div class="row"><span style="font-size:34px;font-weight:800">${a.score}/40</span><span class="pill ${pass ? 'good' : 'bad'}" style="font-size:14px">${pass ? 'ĐẠT' : 'CHƯA ĐẠT'}</span>${a.auto ? '<span class="pill warn">Nộp tự động khi hết giờ</span>' : ''}</div>
+      <div class="row"><span style="font-size:34px;font-weight:700"><span data-count="${a.score}">${a.score}</span>/40</span><span class="pill ${pass ? 'good' : 'bad'}" style="font-size:14px">${pass ? 'ĐẠT' : 'CHƯA ĐẠT'}</span>${a.auto ? '<span class="pill warn">Nộp tự động khi hết giờ</span>' : ''}</div>
       <dl class="kv"><dt>Thí sinh</dt><dd>${esc(a.name || '–')}</dd><dt>Ngày thi</dt><dd>${dateStr(a.submittedAt)}</dd><dt>Thời gian làm</dt><dd>${mins(a.submittedAt - a.startedAt)} / ${a.minutes} phút</dd><dt>Câu sai · bỏ trống</dt><dd>${rows.filter(r => !r.ok && !r.blank).length} · ${rows.filter(r => r.blank).length}</dd></dl>
     </div>
     <div class="stack"><button class="btn" id="shareImg">Tạo ảnh kết quả</button><button class="btn ghost" id="copy">Sao chép kết quả</button><button class="btn ghost" id="newExam">Thi đề khác</button></div>
@@ -520,7 +879,7 @@ function result(){
 async function shareCard(a){
   try { await document.fonts.ready; } catch(e){}
   const W = 1080, H = 1350, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-  const g = cv.getContext('2d'), F = '"Be Vietnam Pro", system-ui, sans-serif', M = '"JetBrains Mono", ui-monospace, monospace';
+  const g = cv.getContext('2d'), F = '"Nunito Sans", system-ui, sans-serif', M = '"JetBrains Mono", ui-monospace, monospace';
   const pass = a.score >= cert.exam.pass, p = pct(a.score, 40);
   g.fillStyle = '#0b1a33'; g.fillRect(0, 0, W, H);
   g.strokeStyle = 'rgba(34,211,238,0.06)'; g.lineWidth = 2;
@@ -528,15 +887,15 @@ async function shareCard(a){
   for (let y = 0; y <= H; y += 60){ g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
   g.fillStyle = '#22d3ee'; g.font = `700 30px ${M}`; g.fillText('THE QA LAB', 88, 120);
   g.fillStyle = '#a9bbd6'; g.font = `500 26px ${F}`; g.fillText('Understand the System · Find the Real Issue', 88, 162);
-  g.fillStyle = '#f2f6fc'; g.font = `800 64px ${F}`; g.fillText('Thi thử ISTQB CTFL', 88, 290);
+  g.fillStyle = '#f2f6fc'; g.font = `700 64px ${F}`; g.fillText('Thi thử ISTQB CTFL', 88, 290);
   g.fillStyle = '#a9bbd6'; g.font = `500 32px ${F}`; g.fillText('v4.0.1 · ' + (a.week || 'Đề ngẫu nhiên'), 88, 340);
   const cx = 250, cy = 560, r = 150;
   g.lineWidth = 34; g.strokeStyle = '#162d50'; g.beginPath(); g.arc(cx, cy, r, 0, Math.PI * 2); g.stroke();
   if (p){ g.strokeStyle = pass ? '#4ade9b' : '#ff7a7a'; g.lineCap = 'round'; g.beginPath(); g.arc(cx, cy, r, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * p / 100); g.stroke(); }
-  g.textAlign = 'center'; g.fillStyle = '#f2f6fc'; g.font = `800 92px ${F}`; g.fillText(a.score + '/40', cx, cy + 20);
+  g.textAlign = 'center'; g.fillStyle = '#f2f6fc'; g.font = `700 92px ${F}`; g.fillText(a.score + '/40', cx, cy + 20);
   g.fillStyle = '#a9bbd6'; g.font = `500 28px ${F}`; g.fillText(p + '%', cx, cy + 66); g.textAlign = 'left';
   g.fillStyle = pass ? 'rgba(74,222,155,0.16)' : 'rgba(255,122,122,0.16)'; roundRect(g, 480, 470, 300, 76, 38); g.fill();
-  g.fillStyle = pass ? '#4ade9b' : '#ff7a7a'; g.font = `800 38px ${F}`; g.fillText(pass ? 'ĐẠT' : 'CHƯA ĐẠT', 512, 522);
+  g.fillStyle = pass ? '#4ade9b' : '#ff7a7a'; g.font = `700 38px ${F}`; g.fillText(pass ? 'ĐẠT' : 'CHƯA ĐẠT', 512, 522);
   g.fillStyle = '#f2f6fc'; g.font = `700 40px ${F}`; g.fillText(fit(g, a.name || 'Thí sinh The QA Lab', 520), 480, 610);
   g.fillStyle = '#a9bbd6'; g.font = `500 28px ${F}`; g.fillText(new Date(a.submittedAt).toLocaleDateString('vi-VN') + ' · ' + mins(a.submittedAt - a.startedAt), 480, 656);
   let y = 820;
@@ -556,6 +915,61 @@ async function shareCard(a){
   const fname = 'the-qa-lab-ctfl-' + a.score + 'of40.png';
   const m = modal(`<h2 class="h2">Ảnh kết quả</h2><img class="shareimg" src="${url}" alt="Ảnh kết quả ${a.score}/40"><p class="small muted">Trên điện thoại: nhấn giữ ảnh để lưu. Kích thước 1080×1350, hợp đăng TikTok, Facebook, Threads.</p><div class="row"><a class="btn" href="${url}" download="${fname}">Tải ảnh</a><button class="btn ghost" id="mClose">Đóng</button></div>`, true);
   m.querySelector('#mClose').onclick = closeModal;
+}
+
+/* ---------- carousel tóm tắt để đăng TikTok / Facebook / Threads ---------- */
+function wrapText(g, t, w){ const out = []; String(t).split('\n').forEach(par => { let line = ''; par.split(/\s+/).forEach(word => { const tt = line ? line + ' ' + word : word; if (g.measureText(tt).width > w && line){ out.push(line); line = word; } else line = tt; }); out.push(line); }); return out; }
+const plain = t => String(t).replace(/\*\*(.+?)\*\*/g, '$1').replace(/`/g, '');
+async function carousel(sec){
+  try { await document.fonts.ready; } catch(e){}
+  const W = 1080, H = 1350, F = '"Nunito Sans", system-ui, sans-serif', M = '"JetBrains Mono", ui-monospace, monospace';
+  const pts = sec.summary.map(plain), chunks = [];
+  // gom ý vào từng slide theo chiều cao chữ
+  const probe = document.createElement('canvas').getContext('2d'); probe.font = `600 44px ${F}`;
+  let cur = [], hgt = 0;
+  pts.forEach((t, i) => { const h = wrapText(probe, t, W - 260).length * 60 + 70; if (cur.length && (hgt + h > 860 || cur.length >= 3)){ chunks.push(cur); cur = []; hgt = 0; } cur.push([i + 1, t]); hgt += h; });
+  if (cur.length) chunks.push(cur);
+  const total = chunks.length + 2;
+  const base = (g, n) => {
+    g.fillStyle = '#0b1a33'; g.fillRect(0, 0, W, H);
+    g.strokeStyle = 'rgba(34,211,238,0.06)'; g.lineWidth = 2;
+    for (let x = 0; x <= W; x += 60){ g.beginPath(); g.moveTo(x, 0); g.lineTo(x, H); g.stroke(); }
+    for (let y = 0; y <= H; y += 60){ g.beginPath(); g.moveTo(0, y); g.lineTo(W, y); g.stroke(); }
+    g.fillStyle = '#22d3ee'; g.font = `700 28px ${M}`; g.fillText('THE QA LAB', 88, 110);
+    g.fillStyle = '#a9bbd6'; g.font = `500 26px ${M}`; g.textAlign = 'right'; g.fillText(n + '/' + total, W - 88, 110); g.textAlign = 'left';
+    g.fillStyle = '#a9bbd6'; g.font = `500 24px ${F}`; g.fillText('ISTQB CTFL v4.0.1 · Mục ' + sec.id, 88, H - 70);
+    for (let i = 0; i < total; i++){ g.fillStyle = i === n - 1 ? '#22d3ee' : '#264670'; roundRect(g, W - 88 - (total - i) * 30 + 8, H - 84, i === n - 1 ? 22 : 12, 12, 6); g.fill(); }
+  };
+  const slides = [];
+  const mk = draw => { const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'); draw(g); slides.push(cv.toDataURL('image/png')); };
+  mk(g => { base(g, 1);
+    g.font = `700 30px ${F}`; const pw = g.measureText('ÔN NHANH · MỤC ' + sec.id).width + 56;
+    g.fillStyle = 'rgba(34,211,238,0.14)'; roundRect(g, 88, 300, pw, 64, 32); g.fill();
+    g.fillStyle = '#22d3ee'; g.fillText('ÔN NHANH · MỤC ' + sec.id, 116, 343);
+    g.fillStyle = '#f2f6fc'; g.font = `800 84px ${F}`; let y = 490; wrapText(g, sec.title, W - 176).slice(0, 4).forEach(l => { g.fillText(l, 88, y); y += 100; });
+    g.fillStyle = '#a9bbd6'; g.font = `500 36px ${F}`; wrapText(g, sec.en, W - 176).slice(0, 2).forEach(l => { y += 6; g.fillText(l, 88, y); y += 44; });
+    g.fillStyle = '#f5b84a'; g.font = `700 34px ${F}`; g.fillText(sec.summary.length + ' ý cần nhớ trước ngày thi  →', 88, H - 200); });
+  chunks.forEach((ch, k) => mk(g => { base(g, k + 2);
+    g.fillStyle = '#a9bbd6'; g.font = `600 30px ${F}`; g.fillText(fit(g, sec.id + ' · ' + plain(sec.title), W - 176), 88, 210);
+    g.font = `600 44px ${F}`; const tot = ch.reduce((a, [, t]) => a + wrapText(g, t, W - 260).length * 60 + 70, -70);
+    let y = Math.max(330, Math.round(260 + (1180 - 260 - tot) / 2) + 30);
+    ch.forEach(([n, t]) => {
+      g.fillStyle = 'rgba(34,211,238,0.14)'; g.beginPath(); g.arc(128, y - 14, 40, 0, Math.PI * 2); g.fill();
+      g.fillStyle = '#22d3ee'; g.font = `700 40px ${M}`; g.textAlign = 'center'; g.fillText(n, 128, y); g.textAlign = 'left';
+      g.fillStyle = '#f2f6fc'; g.font = `600 44px ${F}`; const ls = wrapText(g, t, W - 260); ls.forEach((l, j) => g.fillText(l, 200, y + j * 60)); y += ls.length * 60 + 70;
+    }); }));
+  mk(g => { base(g, total);
+    g.fillStyle = '#f2f6fc'; g.font = `800 72px ${F}`; let y = 420; ['Lưu lại để ôn,', 'rồi thử sức nhé.'].forEach(l => { g.fillText(l, 88, y); y += 90; });
+    g.fillStyle = '#a9bbd6'; g.font = `500 38px ${F}`; y += 30; wrapText(g, 'Bài học chi tiết, luyện câu hỏi song ngữ và phòng thi thử CTFL miễn phí:', W - 176).forEach(l => { g.fillText(l, 88, y); y += 52; });
+    g.fillStyle = '#22d3ee'; g.font = `700 44px ${M}`; g.fillText(siteUrl().replace(/^https?:\/\//, ''), 88, y + 40);
+    g.fillStyle = '#f5b84a'; g.font = `700 32px ${F}`; g.fillText('Bạn thấy ý nào hay bị nhầm nhất? Bình luận nhé.', 88, H - 200); });
+  const cap = `Ôn ISTQB CTFL · ${sec.id} ${plain(sec.title)}\n${sec.summary.length} ý cần nhớ, lưu lại để ôn trước ngày thi.\nHọc và thi thử miễn phí: ${siteUrl()}\n#ISTQB #CTFL #Tester #QA #KiemThuPhanMem #TheQALab`;
+  const m = modal(`<h2 class="h2">Carousel mục ${sec.id}</h2><p class="small muted">${slides.length} ảnh 1080×1350. Trên điện thoại: nhấn giữ từng ảnh để lưu. Trên máy tính: bấm Tải tất cả.</p>
+    <div class="carou">${slides.map((u, i) => `<img src="${u}" alt="Slide ${i + 1}" loading="lazy">`).join('')}</div>
+    <div class="row"><button class="btn" id="cDl">Tải tất cả</button><button class="btn ghost" id="cCap">Sao chép caption</button><button class="btn link" id="mClose">Đóng</button></div>`, true);
+  m.querySelector('#mClose').onclick = closeModal;
+  m.querySelector('#cCap').onclick = () => copy(cap);
+  m.querySelector('#cDl').onclick = () => slides.forEach((u, i) => setTimeout(() => { const a = document.createElement('a'); a.href = u; a.download = `the-qa-lab-${sec.id}-${i + 1}.png`; document.body.appendChild(a); a.click(); a.remove(); }, i * 350));
 }
 function roundRect(g, x, y, w, h, r){ g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
 function fit(g, t, w){ if (g.measureText(t).width <= w) return t; while (t.length && g.measureText(t + '…').width > w) t = t.slice(0, -1); return t + '…'; }
