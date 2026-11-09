@@ -9,8 +9,8 @@ window.QALAB.tracks = [
     {code:"CTFL v4.0", name:"Certified Tester Foundation Level", level:"Foundation", status:"open", cert:"ctfl",
      learn:"Nền tảng: quy trình kiểm thử, kỹ thuật thiết kế test, kiểm thử tĩnh, quản lý kiểm thử, công cụ.",
      req:"Không yêu cầu đầu vào. Là điều kiện cho mọi chứng chỉ ISTQB khác.", when:"Tháng 0–2"},
-    {code:"CTAL-TA v4.0", name:"Advanced Level Test Analyst", level:"Advanced", status:"open",
-     learn:"Phân tích và thiết kế test nâng cao theo rủi ro, kỹ thuật hộp đen chuyên sâu (domain, combinatorial, state transition, decision table, metamorphic), đặc tính chất lượng nghiệp vụ, phòng ngừa khiếm khuyết. Đã có trên The QA Lab: mở trang CTAL-TA ở menu.",
+    {code:"CTAL-TA v4.0", name:"Advanced Level Test Analyst", level:"Advanced", status:"open", cert:"ctal-ta",
+     learn:"Phân tích và thiết kế test nâng cao theo rủi ro, kỹ thuật hộp đen chuyên sâu (domain, combinatorial, state transition, decision table, metamorphic), đặc tính chất lượng nghiệp vụ, phòng ngừa khiếm khuyết.",
      req:"Có CTFL và đủ kinh nghiệm kiểm thử thực tế. Đề 45 câu, 78 điểm, đạt 51, 120 phút. Bản v3.1 đã ngừng thi tiếng Anh sau 16/5/2026.", when:"Tháng 6–9"},
     {code:"CTAL-TTA", name:"Advanced Level Technical Test Analyst", level:"Advanced", status:"later",
      learn:"Kiểm thử hộp trắng, phân tích tĩnh/động, đặc tính kỹ thuật: bảo mật, hiệu năng, khả năng bảo trì.",
@@ -60,7 +60,6 @@ window.QALAB.roadmapNotes = [
   "Mốc thời gian là gợi ý cho người vừa đạt CTFL, không phải yêu cầu của ISTQB."
 ];
 window.QALAB.roadmapLinks = [
-  ["Học và thi thử CTAL-TA v4.0 trên The QA Lab","ta.html#home"],
   ["Danh sách chứng chỉ ISTQB","https://istqb.org/certifications/certification-list"],
   ["Đăng ký thi trên iSQI","https://isqi.org/Software-Testing-Quality/?order=topseller&p=1&properties=cbb6d6020974402bbcc0d24eb72e1c63"]
 ];

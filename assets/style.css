@@ -389,3 +389,121 @@ pre.code span.ne{color:var(--muted)}
 .carou{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;padding-bottom:6px}
 .carou img{flex:0 0 auto;width:min(260px,70vw);aspect-ratio:1080/1350;border-radius:10px;border:1px solid var(--line);scroll-snap-align:start}
 .lesson-body code,.rev code,.sumbox code{font-family:var(--mono);font-size:.88em;background:var(--surface-2);padding:1px 5px;border-radius:5px}
+
+/* ---------- v8: nhiều chứng chỉ, bản đồ lộ trình, bước tiếp theo ---------- */
+.navsel{min-height:34px;padding:4px 30px 4px 10px;border-radius:8px;font-size:14px;font-weight:600;color:var(--accent);background:var(--accent-soft);border:1px solid transparent;cursor:pointer;margin:0 4px}
+.navsel:hover{border-color:var(--accent)}
+nav{align-items:center}
+.spin{width:16px;height:16px;border-radius:50%;border:2px solid var(--line-strong);border-top-color:var(--accent);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.btn.big{padding:14px 24px;font-size:16px;border-radius:12px}
+
+/* Trang Lộ trình */
+.mhero{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:32px;align-items:end;padding:28px 0 8px}
+.mhero .h1{font-size:clamp(36px,5.4vw,60px);line-height:1.04;letter-spacing:-.025em;font-weight:700}
+.mhero .lead{max-width:56ch;margin-top:14px}
+.mhero-cta{display:flex;flex-direction:column;align-items:flex-start;gap:10px;padding-bottom:6px}
+.metro{position:relative;height:360px;border:1px solid var(--line);border-radius:22px;background-color:var(--surface);background-image:radial-gradient(var(--line) 1.2px,transparent 1.3px);background-size:22px 22px;overflow:hidden}
+.metro.v{height:var(--mh)}
+.metro svg{position:absolute;inset:0;width:100%;height:100%}
+.metro .ln{fill:none;stroke-width:10;stroke-linecap:round;stroke-linejoin:round}
+.ln-sp{stroke:var(--accent);--lc:var(--accent)}.ln-mg{stroke:var(--pink);--lc:var(--pink)}.ln-hub{stroke:var(--ink)}
+.line-sp{--lc:var(--accent)}.line-mg{--lc:var(--pink)}.line-hub{--lc:var(--ink)}
+.stn{position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:8px;background:none;border:0;padding:6px;color:inherit;cursor:pointer;font:inherit;border-radius:14px;margin-top:22px}
+.stn .dot{width:30px;height:30px;border-radius:50%;background:var(--surface);border:6px solid var(--lc);display:grid;place-items:center;position:relative;transition:transform .2s}
+.stn.open .dot{width:46px;height:46px;border:0;background:conic-gradient(var(--lc) calc(var(--p,0) * 1%),var(--surface-2) 0);color:#fff;font-weight:800;font-size:16px}
+.stn.open .dot::before{content:"";position:absolute;inset:7px;border-radius:50%;background:var(--lc);z-index:-0}
+.stn.open .dot{isolation:isolate}.stn.open .dot::before{z-index:-1}
+.stn.later .dot{width:24px;height:24px;border-width:4px;border-color:var(--line-strong)}
+.stn.branch .dot{border-style:dashed}
+.stn.later .lbl{opacity:.7}
+.stn .lbl{display:flex;flex-direction:column;align-items:center;line-height:1.25;white-space:nowrap;background:var(--surface);padding:2px 6px;border-radius:8px}
+.stn .lbl b{font-size:15px;font-weight:700}
+.stn .lbl small{font-size:12px;color:var(--muted)}
+.stn:hover .dot,.stn.sel .dot{transform:scale(1.12)}
+.stn.sel .lbl b{color:var(--lc)}
+.stn.sel .lbl{box-shadow:0 0 0 2px var(--lc)}
+.stn:focus-visible{outline:2px solid var(--lc);outline-offset:2px}
+.stn .you{position:absolute;bottom:calc(100% - 4px);left:50%;transform:translateX(-50%);background:var(--ink);color:var(--bg);font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:99px;white-space:nowrap}
+.stn .you::after{content:"";position:absolute;left:50%;top:100%;margin-left:-5px;border:5px solid transparent;border-top-color:var(--ink)}
+.metro-key{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;margin-top:-6px}
+.metro-key span{display:inline-flex;align-items:center;gap:8px}
+.metro-key .sw{width:22px;height:6px;border-radius:9px;background:var(--lc)}
+.metro-key .k{width:14px;height:14px;border-radius:50%;border:3px solid var(--muted)}
+.metro-key .k.open{background:var(--muted)}.metro-key .k.later{border-color:var(--line-strong)}
+.stpanel{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:32px;align-items:start}
+.stp-main{display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.stp-main p{max-width:62ch}
+.stp-prog{display:grid;gap:16px}
+.stp-prog>div{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:baseline}
+.stp-prog span{color:var(--muted);font-size:13px}
+.stp-prog b{font-size:22px;font-weight:700}
+.stp-prog b small{font-size:13px;font-weight:400;color:var(--muted)}
+.stp-prog .bar{grid-column:1/-1}
+.stp-opts{display:grid;gap:10px;font-size:14px}
+.notes summary{cursor:pointer;font-weight:600}
+.notes[open] summary{margin-bottom:10px}
+@keyframes lndraw{to{stroke-dashoffset:0}}
+@keyframes stnin{from{opacity:0;transform:translate(-50%,-50%) scale(.6)}}
+@keyframes herepulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--lc) 45%,transparent)}100%{box-shadow:0 0 0 16px transparent}}
+@media (prefers-reduced-motion:no-preference){
+  .metro.draw .ln{stroke-dasharray:1;stroke-dashoffset:1;animation:lndraw 1.1s cubic-bezier(.6,0,.2,1) forwards}
+  .metro.draw .ln-sp,.metro.draw .ln-mg{animation-delay:.35s}.metro.draw .ln-hub{animation-duration:.4s}
+  .metro.draw .stn{animation:stnin .45s cubic-bezier(.3,1.4,.5,1) backwards}
+  .metro.draw .stn.line-sp{animation-delay:.6s}.metro.draw .stn.line-mg{animation-delay:.75s}
+  .stn.here .dot{animation:herepulse 1.8s ease-out infinite}
+}
+@media (max-width:720px){.mhero,.stpanel{grid-template-columns:1fr}.mhero{gap:18px}.stn{margin-top:20px}.stn .lbl b{font-size:14px}}
+
+/* Trang tổng quan của từng chứng chỉ */
+.chero{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:32px;align-items:end}
+.chero .h1{font-size:clamp(40px,6vw,66px);line-height:1;letter-spacing:-.03em;margin-top:10px}
+.chero .ver{font-weight:400;color:var(--muted);font-size:.5em;letter-spacing:0}
+.chero .lead{margin-top:12px}
+.chero .nextstep{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:20px 22px;display:flex;flex-direction:column;gap:8px;align-items:flex-start;box-shadow:var(--shadow)}
+.nextstep{border-left:4px solid var(--accent)}
+.nextstep .h2{font-size:20px}
+.aftercard{text-decoration:none;color:inherit}
+.nextch{margin-top:6px}
+.path3 a{white-space:normal}
+@media (max-width:720px){.chero{grid-template-columns:1fr;gap:18px}}
+
+/* Logo v8 */
+.brand{display:inline-flex;align-items:center;gap:10px;text-decoration:none;color:var(--ink)}
+.brand .mark{flex:none;border-radius:9px;box-shadow:0 2px 10px rgba(14,116,144,.28);transition:transform .25s}
+.brand:hover .mark{transform:rotate(-8deg)}
+.brand .wm{font-size:18px;font-weight:800;letter-spacing:-.02em;line-height:1;white-space:nowrap;font-family:var(--font)}
+@media (max-width:420px){.brand .wm{font-size:16px}}
+
+/* ---------- v8: chuyển động (tắt khi người dùng chọn giảm chuyển động) ---------- */
+@property --p{syntax:"<number>";inherits:false;initial-value:0}
+.metro .train{fill:none;stroke:#fff;stroke-width:4;stroke-linecap:round;stroke-dasharray:0 1;opacity:0}
+.mhero .h1 .w{display:inline-block}
+.stpanel{transition:box-shadow .3s}
+@keyframes ringfill{from{--p:0}}
+@keyframes trainrun{0%{stroke-dashoffset:1;opacity:0}6%{opacity:.95}94%{opacity:.95}100%{stroke-dashoffset:0;opacity:0}}
+@keyframes wordrise{from{opacity:0;transform:translateY(.45em);filter:blur(4px)}}
+@keyframes swapin{from{opacity:0;transform:translateY(8px)}}
+@keyframes stntap{0%{transform:scale(1.12)}40%{transform:scale(1.32)}100%{transform:scale(1.12)}}
+@keyframes bubble{0%{transform:translateY(0);opacity:0}20%{opacity:1}100%{transform:translateY(-15px);opacity:0}}
+@keyframes sweep{from{transform:translateX(-120%)}to{transform:translateX(320%)}}
+@keyframes nudge{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
+@media (prefers-reduced-motion:no-preference){
+  .stn.open .dot{animation:ringfill 1.4s cubic-bezier(.3,0,.2,1) 1s both}
+  .metro.draw .stn.open .dot{animation-delay:1.3s}
+  .metro .train{stroke-dasharray:.035 .965;animation:trainrun 6.5s linear 1.6s infinite}
+  .metro .tr-mg{animation-duration:8s;animation-delay:2.6s}
+  .mhero .h1.reveal .w{animation:wordrise .7s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i) * 70ms)}
+  .mhero.reveal-done .h1 .w{animation:none}
+  .mhero-cta{animation:swapin .6s .55s both}
+  .stpanel.swap>*{animation:swapin .35s cubic-bezier(.2,.8,.2,1) both}
+  .stpanel.swap>*+*{animation-delay:.06s}
+  .stn.tap .dot{animation:stntap .35s ease-out}
+  .stn:hover .lbl{transform:translateY(2px)}
+  .stn .lbl{transition:transform .2s,box-shadow .2s}
+  .brand .mark .bub{transform-box:fill-box;transform-origin:center;animation:bubble 3.2s ease-in infinite}
+  .brand .mark .b2{animation-delay:1.6s;animation-duration:2.8s}
+  .chero .nextstep{position:relative;overflow:hidden}
+  .chero .nextstep::after{content:"";position:absolute;top:0;bottom:0;left:0;width:40%;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--accent) 14%,transparent),transparent);transform:translateX(-120%);animation:sweep 1.6s .5s ease-in-out 1;pointer-events:none}
+  .chero .nextstep .btn{animation:nudge 1.6s 2.2s ease-in-out 2}
+}
